@@ -1,4 +1,4 @@
-name: Build APK from Web
+name: Build Native WebView APK
 
 on:
   workflow_dispatch:
@@ -11,91 +11,204 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
       - name: Set up Java JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Install Android SDK Tools
+      - name: Set up Android SDK
         uses: android-actions/setup-android@v4
 
-      - name: Install Cordova CLI
-        run: npm install -g cordova
-
-      - name: Create Cordova Project
+      - name: Create Native Android Project
         run: |
-          # Buat project cordova
-          cordova create router_app com.router.admin "Router Admin"
-          cd router_app
+          # Buat struktur folder proyek Android minimum
+          mkdir -p native_app/app/src/main/java/com/router/admin
+          mkdir -p native_app/app/src/main/res/layout
+          mkdir -p native_app/app/src/main/res/drawable
+          mkdir -p native_app/app/src/main/res/mipmap-hdpi
+          mkdir -p native_app/app/src/main/res/mipmap-xhdpi
+          mkdir -p native_app/app/src/main/res/mipmap-xxhdpi
 
-          # Tambah platform android
-          cordova platform add android
+          # Download Icon dari link Anda
+          curl -s -L "https://media.licdn.com/dms/image/v2/D560BAQGeXiMzYHWgRA/company-logo_200_200/B56Zt8puBZIcAI-/0/1767322870258/zte_indonesia_logo?e=2147483647&v=beta&t=7aWKMYfj1Y7czyRm8BZ0cRoPTH12WmqKH_wAQrZaVSY" -o native_app/app/src/main/res/drawable/icon.png
 
-          # Tambah Plugin untuk Splash Screen dan Autofill / Password Manager
-          cordova plugin add cordova-plugin-splashscreen
+          # 1. Buat AndroidManifest.xml (Mengizinkan HTTP Cleartext & Autofill)
+          cat <<EOF > native_app/app/src/main/AndroidManifest.xml
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.router.admin">
 
-          # Download Icon & Splash Screen
-          mkdir -p res
-          curl -s -L "https://media.licdn.com/dms/image/v2/D560BAQGeXiMzYHWgRA/company-logo_200_200/B56Zt8puBZIcAI-/0/1767322870258/zte_indonesia_logo?e=2147483647&v=beta&t=7aWKMYfj1Y7czyRm8BZ0cRoPTH12WmqKH_wAQrZaVSY" -o res/icon.png
-          curl -s -L "https://media.licdn.com/dms/image/v2/D560BAQGeXiMzYHWgRA/company-logo_200_200/B56Zt8puBZIcAI-/0/1767322870258/zte_indonesia_logo?e=2147483647&v=beta&t=7aWKMYfj1Y7czyRm8BZ0cRoPTH12WmqKH_wAQrZaVSY" -o res/screen.png
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-          # Edit config.xml dengan konfigurasi Password Manager (Autofill) dan Splash Screen Kustom
-          cat <<EOF > config.xml
-          <?xml version='1.0' encoding='utf-8'?>
-          <widget id="com.router.admin" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0" xmlns:android="http://schemas.android.com/apk/res/android">
-              <name>Router Admin</name>
-              <description>Aplikasi Router Admin</description>
-              <author email="dev@example.com">Developer</author>
-              <content src="http://192.168.1.1/" />
-              <access origin="*" />
-              <allow-intent href="http://*/*" />
-              <allow-intent href="https://*/*" />
-              <allow-navigation href="http://192.168.1.1/*" />
-              
-              <!-- Konfigurasi Tampilan & Splash Screen -->
-              <preference name="Orientation" value="default" />
-              <preference name="SplashScreen" value="screen" />
-              <preference name="SplashScreenDelay" value="3000" />
-              <preference name="AutoHideSplashScreen" value="true" />
-              <preference name="FadeSplashScreen" value="true" />
-              <preference name="ShowSplashScreenSpinner" value="false" />
-              
-              <icon src="res/icon.png" />
-              <splash src="res/screen.png" />
+              <application
+                  android:allowBackup="true"
+                  android:icon="@drawable/icon"
+                  android:label="Router Admin"
+                  android:roundIcon="@drawable/icon"
+                  android:supportsRtl="true"
+                  android:usesCleartextTraffic="true"
+                  android:theme="@style/Theme.AppCompat.Light.NoActionBar">
 
-              <!-- Mengizinkan HTTP Cleartext Traffic & Autofill / Password Manager (Chrome-like behavior) -->
-              <edit-config file="app/src/main/AndroidManifest.xml" mode="merge" target="/manifest/application">
-                  <application android:usesCleartextTraffic="true" />
-              </edit-config>
-          </widget>
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:configChanges="orientation|screenSize|keyboardHidden">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
           EOF
 
-      - name: Build Android APK
+          # 2. Buat build.gradle (Module level)
+          cat <<EOF > native_app/app/build.gradle
+          plugins {
+              id 'com.android.application'
+          }
+
+          android {
+              namespace 'com.router.admin'
+              compileSdk 34
+
+              defaultConfig {
+                  applicationId "com.router.admin"
+                  minSdk 24
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                  }
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.6.1'
+              implementation 'com.google.android.material:material:1.9.0'
+          }
+          EOF
+
+          # 3. Buat settings.gradle
+          cat <<EOF > native_app/settings.gradle
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "RouterAdmin"
+          include ':app'
+          EOF
+
+          # 4. Buat build.gradle (Project level)
+          cat <<EOF > native_app/build.gradle
+          plugins {
+              id 'com.android.application' version '8.2.0' apply false
+          }
+          EOF
+
+          # 5. Buat Layout XML untuk WebView
+          cat <<EOF > native_app/app/src/main/res/layout/activity_main.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent">
+
+              <WebView
+                  android:id="@+id/webview"
+                  android:layout_width="match_parent"
+                  android:layout_height="match_parent" />
+
+          </RelativeLayout>
+          EOF
+
+          # 6. Buat MainActivity.java (Native WebView dengan dukungan Autofill / Password Manager)
+          cat <<EOF > native_app/app/src/main/java/com/router/admin/MainActivity.java
+          package com.router.admin;
+
+          import android.os.Bundle;
+          import android.webkit.CookieManager;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+          import androidx.appcompat.app.AppCompatActivity;
+
+          public class MainActivity extends AppCompatActivity {
+              private WebView webView;
+
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  setContentView(R.layout.activity_main);
+
+                  webView = findViewById(R.id.webview);
+                  WebSettings webSettings = webView.getSettings();
+                  
+                  // Mengaktifkan JavaScript & DOM Storage agar form login berfungsi normal
+                  webSettings.setJavaScriptEnabled(true);
+                  webSettings.setDomStorageEnabled(true);
+                  webSettings.setDatabaseEnabled(true);
+                  
+                  // Mengaktifkan Autofill & Password Manager bawaan Android/Chrome
+                  webSettings.setSaveFormData(true);
+
+                  webView.setWebViewClient(new WebViewClient());
+                  webView.loadUrl("http://192.168.1.1/");
+              }
+
+              @Override
+              public void onBackPressed() {
+                  if (webView.canGoBack()) {
+                      webView.goBack();
+                  } else {
+                      super.onBackPressed();
+                  }
+              }
+          }
+          EOF
+
+      - name: Build APK with Gradle
         run: |
-          cd router_app
-          cordova build android --debug
+          cd native_app
+          chmod +x gradlew || true
+          # Generate gradlew otomatis jika belum ada
+          gradle wrapper
+          ./gradlew assembleDebug
 
       - name: Prepare APK Output
         run: |
           mkdir -p output
-          cp router_app/platforms/android/app/build/outputs/apk/debug/app-debug.apk output/router-admin.apk
+          cp native_app/app/build/outputs/apk/debug/app-debug.apk output/router-admin-native.apk
 
       - name: Create Release and Upload APK
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.${{ github.run_number }}
-          name: Router Admin Release v1.0.${{ github.run_number }}
+          tag_name: v2.0.${{ github.run_number }}
+          name: Router Admin Native v2.0.${{ github.run_number }}
           body: |
-            APK Router Admin berhasil di-build dengan pembaruan:
-            - Cleartext HTTP diizinkan (http://192.168.1.1/)
-            - Custom Ikon & Splash Screen ZTE Indonesia
-            - Dukungan Autofill / Password Manager aktif
-          files: output/router-admin.apk
+            APK Native Router Admin berhasil di-build!
+            - Menggunakan Android Native WebView (Sangat stabil)
+            - Password Manager / Autofill Google aktif penuh
+            - Ikon kustom ZTE Indonesia terpasang
+            - URL: http://192.168.1.1/
+          files: output/router-admin-native.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
