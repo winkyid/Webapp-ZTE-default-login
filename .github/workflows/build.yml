@@ -26,14 +26,11 @@ jobs:
           mkdir -p native_app/app/src/main/java/com/router/admin
           mkdir -p native_app/app/src/main/res/layout
           mkdir -p native_app/app/src/main/res/drawable
-          mkdir -p native_app/app/src/main/res/mipmap-hdpi
-          mkdir -p native_app/app/src/main/res/mipmap-xhdpi
-          mkdir -p native_app/app/src/main/res/mipmap-xxhdpi
 
           # Download Icon dari link Anda
           curl -s -L "https://media.licdn.com/dms/image/v2/D560BAQGeXiMzYHWgRA/company-logo_200_200/B56Zt8puBZIcAI-/0/1767322870258/zte_indonesia_logo?e=2147483647&v=beta&t=7aWKMYfj1Y7czyRm8BZ0cRoPTH12WmqKH_wAQrZaVSY" -o native_app/app/src/main/res/drawable/icon.png
 
-          # 1. Buat AndroidManifest.xml (Mengizinkan HTTP Cleartext & Autofill)
+          # 1. Buat AndroidManifest.xml
           cat <<EOF > native_app/app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
               package="com.router.admin">
@@ -63,7 +60,14 @@ jobs:
           </manifest>
           EOF
 
-          # 2. Buat build.gradle (Module level)
+          # 2. Buat gradle.properties (Penting untuk AndroidX)
+          cat <<EOF > native_app/gradle.properties
+          android.useAndroidX=true
+          android.enableJetifier=true
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          EOF
+
+          # 3. Buat build.gradle (Module level)
           cat <<EOF > native_app/app/build.gradle
           plugins {
               id 'com.android.application'
@@ -98,7 +102,7 @@ jobs:
           }
           EOF
 
-          # 3. Buat settings.gradle
+          # 4. Buat settings.gradle
           cat <<EOF > native_app/settings.gradle
           pluginManagement {
               repositories {
@@ -118,14 +122,14 @@ jobs:
           include ':app'
           EOF
 
-          # 4. Buat build.gradle (Project level)
+          # 5. Buat build.gradle (Project level)
           cat <<EOF > native_app/build.gradle
           plugins {
               id 'com.android.application' version '8.2.0' apply false
           }
           EOF
 
-          # 5. Buat Layout XML untuk WebView
+          # 6. Buat Layout XML untuk WebView
           cat <<EOF > native_app/app/src/main/res/layout/activity_main.xml
           <?xml version="1.0" encoding="utf-8"?>
           <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -140,12 +144,11 @@ jobs:
           </RelativeLayout>
           EOF
 
-          # 6. Buat MainActivity.java (Native WebView dengan dukungan Autofill / Password Manager)
+          # 7. Buat MainActivity.java
           cat <<EOF > native_app/app/src/main/java/com/router/admin/MainActivity.java
           package com.router.admin;
 
           import android.os.Bundle;
-          import android.webkit.CookieManager;
           import android.webkit.WebSettings;
           import android.webkit.WebView;
           import android.webkit.WebViewClient;
@@ -162,12 +165,9 @@ jobs:
                   webView = findViewById(R.id.webview);
                   WebSettings webSettings = webView.getSettings();
                   
-                  // Mengaktifkan JavaScript & DOM Storage agar form login berfungsi normal
                   webSettings.setJavaScriptEnabled(true);
                   webSettings.setDomStorageEnabled(true);
                   webSettings.setDatabaseEnabled(true);
-                  
-                  // Mengaktifkan Autofill & Password Manager bawaan Android/Chrome
                   webSettings.setSaveFormData(true);
 
                   webView.setWebViewClient(new WebViewClient());
@@ -188,9 +188,8 @@ jobs:
       - name: Build APK with Gradle
         run: |
           cd native_app
-          chmod +x gradlew || true
-          # Generate gradlew otomatis jika belum ada
           gradle wrapper
+          chmod +x gradlew
           ./gradlew assembleDebug
 
       - name: Prepare APK Output
@@ -205,9 +204,8 @@ jobs:
           name: Router Admin Native v2.0.${{ github.run_number }}
           body: |
             APK Native Router Admin berhasil di-build!
-            - Menggunakan Android Native WebView (Sangat stabil)
-            - Password Manager / Autofill Google aktif penuh
-            - Ikon kustom ZTE Indonesia terpasang
+            - Menggunakan Android Native WebView
+            - Password Manager / Autofill Google aktif
             - URL: http://192.168.1.1/
           files: output/router-admin-native.apk
         env:
