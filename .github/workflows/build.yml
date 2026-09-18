@@ -30,10 +30,9 @@ jobs:
           # Download Icon dari link Anda
           curl -s -L "https://media.licdn.com/dms/image/v2/D560BAQGeXiMzYHWgRA/company-logo_200_200/B56Zt8puBZIcAI-/0/1767322870258/zte_indonesia_logo?e=2147483647&v=beta&t=7aWKMYfj1Y7czyRm8BZ0cRoPTH12WmqKH_wAQrZaVSY" -o native_app/app/src/main/res/drawable/icon.png
 
-          # 1. Buat AndroidManifest.xml
+          # 1. Buat AndroidManifest.xml (Tanpa atribut package, namespace diatur di build.gradle)
           cat <<EOF > native_app/app/src/main/AndroidManifest.xml
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-              package="com.router.admin">
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
               <uses-permission android:name="android.permission.INTERNET" />
               <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -60,14 +59,14 @@ jobs:
           </manifest>
           EOF
 
-          # 2. Buat gradle.properties (Penting untuk AndroidX)
+          # 2. Buat gradle.properties
           cat <<EOF > native_app/gradle.properties
           android.useAndroidX=true
           android.enableJetifier=true
           org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
           EOF
 
-          # 3. Buat build.gradle (Module level)
+          # 3. Buat build.gradle (Module level - AGP 8.2.2)
           cat <<EOF > native_app/app/build.gradle
           plugins {
               id 'com.android.application'
@@ -122,14 +121,26 @@ jobs:
           include ':app'
           EOF
 
-          # 5. Buat build.gradle (Project level)
+          # 5. Buat build.gradle (Project level dengan AGP 8.2.2)
           cat <<EOF > native_app/build.gradle
           plugins {
-              id 'com.android.application' version '8.2.0' apply false
+              id 'com.android.application' version '8.2.2' apply false
           }
           EOF
 
-          # 6. Buat Layout XML untuk WebView
+          # 6. Kunci versi Gradle ke 8.5 yang stabil
+          mkdir -p native_app/gradle/wrapper
+          cat <<EOF > native_app/gradle/wrapper/gradle-wrapper.properties
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-bin.zip
+          networkTimeout=10000
+          validateDistributionUrl=true
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/path
+          EOF
+
+          # 7. Buat Layout XML untuk WebView
           cat <<EOF > native_app/app/src/main/res/layout/activity_main.xml
           <?xml version="1.0" encoding="utf-8"?>
           <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -144,7 +155,7 @@ jobs:
           </RelativeLayout>
           EOF
 
-          # 7. Buat MainActivity.java
+          # 8. Buat MainActivity.java
           cat <<EOF > native_app/app/src/main/java/com/router/admin/MainActivity.java
           package com.router.admin;
 
@@ -188,8 +199,7 @@ jobs:
       - name: Build APK with Gradle
         run: |
           cd native_app
-          gradle wrapper
-          chmod +x gradlew
+          chmod +x gradlew || true
           ./gradlew assembleDebug
 
       - name: Prepare APK Output
@@ -200,11 +210,11 @@ jobs:
       - name: Create Release and Upload APK
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.0.${{ github.run_number }}
-          name: Router Admin Native v2.0.${{ github.run_number }}
+          tag_name: v2.1.${{ github.run_number }}
+          name: Router Admin Native v2.1.${{ github.run_number }}
           body: |
-            APK Native Router Admin berhasil di-build!
-            - Menggunakan Android Native WebView
+            APK Native Router Admin berhasil di-build dengan stabil!
+            - Gradle 8.5 & AGP 8.2.2 (Stabil & Bebas Konflik)
             - Password Manager / Autofill Google aktif
             - URL: http://192.168.1.1/
           files: output/router-admin-native.apk
