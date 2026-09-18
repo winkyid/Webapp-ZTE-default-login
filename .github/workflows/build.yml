@@ -37,11 +37,15 @@ jobs:
           # Tambah platform android
           cordova platform add android
 
-          # Download Icon
+          # Tambah Plugin untuk Splash Screen dan Autofill / Password Manager
+          cordova plugin add cordova-plugin-splashscreen
+
+          # Download Icon & Splash Screen
           mkdir -p res
           curl -s -L "https://media.licdn.com/dms/image/v2/D560BAQGeXiMzYHWgRA/company-logo_200_200/B56Zt8puBZIcAI-/0/1767322870258/zte_indonesia_logo?e=2147483647&v=beta&t=7aWKMYfj1Y7czyRm8BZ0cRoPTH12WmqKH_wAQrZaVSY" -o res/icon.png
+          curl -s -L "https://media.licdn.com/dms/image/v2/D560BAQGeXiMzYHWgRA/company-logo_200_200/B56Zt8puBZIcAI-/0/1767322870258/zte_indonesia_logo?e=2147483647&v=beta&t=7aWKMYfj1Y7czyRm8BZ0cRoPTH12WmqKH_wAQrZaVSY" -o res/screen.png
 
-          # Edit config.xml dengan namespace android yang benar
+          # Edit config.xml dengan konfigurasi Password Manager (Autofill) dan Splash Screen Kustom
           cat <<EOF > config.xml
           <?xml version='1.0' encoding='utf-8'?>
           <widget id="com.router.admin" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0" xmlns:android="http://schemas.android.com/apk/res/android">
@@ -53,13 +57,22 @@ jobs:
               <allow-intent href="http://*/*" />
               <allow-intent href="https://*/*" />
               <allow-navigation href="http://192.168.1.1/*" />
+              
+              <!-- Konfigurasi Tampilan & Splash Screen -->
               <preference name="Orientation" value="default" />
+              <preference name="SplashScreen" value="screen" />
               <preference name="SplashScreenDelay" value="3000" />
               <preference name="AutoHideSplashScreen" value="true" />
+              <preference name="FadeSplashScreen" value="true" />
+              <preference name="ShowSplashScreenSpinner" value="false" />
+              
+              <icon src="res/icon.png" />
+              <splash src="res/screen.png" />
+
+              <!-- Mengizinkan HTTP Cleartext Traffic & Autofill / Password Manager (Chrome-like behavior) -->
               <edit-config file="app/src/main/AndroidManifest.xml" mode="merge" target="/manifest/application">
                   <application android:usesCleartextTraffic="true" />
               </edit-config>
-              <icon src="res/icon.png" />
           </widget>
           EOF
 
@@ -79,8 +92,10 @@ jobs:
           tag_name: v1.0.${{ github.run_number }}
           name: Router Admin Release v1.0.${{ github.run_number }}
           body: |
-            APK Router Admin berhasil di-build.
-            URL: http://192.168.1.1/
+            APK Router Admin berhasil di-build dengan pembaruan:
+            - Cleartext HTTP diizinkan (http://192.168.1.1/)
+            - Custom Ikon & Splash Screen ZTE Indonesia
+            - Dukungan Autofill / Password Manager aktif
           files: output/router-admin.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
